@@ -15,7 +15,7 @@ func main() {
 
 	// Global CORS middleware
 	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "https://file-encrypt-frontend.vercel.app/")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if c.Request.Method == "OPTIONS" {
@@ -98,7 +98,6 @@ func handleDecrypt(c *gin.Context) {
 	c.FileAttachment(decPath, originalName)
 }
 
-
 // package main
 
 // import (
@@ -153,7 +152,7 @@ func handleDecrypt(c *gin.Context) {
 // 			<body>
 // 				<h1>✅ File_Encrypt Backend is Running</h1>
 // 				<p>Server is live on <strong>port 8081</strong></p>
-// 				<p>Frontend available at: 
+// 				<p>Frontend available at:
 // 					<a href="https://file-encrypt-frontend.vercel.app/" target="_blank">
 // 						Open Frontend
 // 					</a>
@@ -230,7 +229,6 @@ func handleDecrypt(c *gin.Context) {
 // 	originalName := file.Filename[:len(file.Filename)-4] // remove .enc
 // 	c.FileAttachment(decPath, originalName)
 // }
-
 
 // package main
 
