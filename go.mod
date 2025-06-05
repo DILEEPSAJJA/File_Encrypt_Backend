@@ -1,3 +1,7 @@
 module file_encrypt_backend
 
 go 1.20
+
+require (
+	github.com/gin-gonic/gin v1.9.1 // Only if you're using gin somewhere else, optional
+)

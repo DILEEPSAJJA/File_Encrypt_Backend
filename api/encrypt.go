@@ -1,29 +1,34 @@
-package encrypt
+package main
 
 import (
-	"file_encrypt_backend/filecrypt"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"file_encrypt_backend/filecrypt"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		addCORSHeaders(w)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
+	addCORSHeaders(w)
+
 	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
+		return
+	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
@@ -41,11 +46,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	tempPath := filepath.Join(os.TempDir(), header.Filename)
 	out, err := os.Create(tempPath)
 	if err != nil {
-		http.Error(w, "Could not save uploaded file", http.StatusInternalServerError)
+		http.Error(w, "Failed to save uploaded file", http.StatusInternalServerError)
 		return
 	}
 	defer out.Close()
 	io.Copy(out, file)
+	defer os.Remove(tempPath)
 
 	encPath, err := filecrypt.EncryptFile(tempPath, []byte(password))
 	if err != nil {
@@ -54,5 +60,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer os.Remove(encPath)
 
+	w.Header().Set("Content-Disposition", "attachment; filename="+header.Filename+".enc")
 	http.ServeFile(w, r, encPath)
+}
+
+func addCORSHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "https://file-encrypt-frontend.vercel.app")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
