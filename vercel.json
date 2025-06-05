@@ -1,11 +1,6 @@
 {
-  "functions": {
-    "api/*.go": {
-      "runtime": "go"
-    }
-  },
-  "routes": [
-    {"src": "/api/(.*)", "dest": "/api/$1"},
-    {"src": "/.*", "dest": "https://file-encrypt-frontend.vercel.app"}
+  "version": 2,
+  "builds": [
+    { "src": "api/*.go", "use": "@vercel/go" }
   ]
 }

@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"fmt"
@@ -6,49 +6,53 @@ import (
 	"os"
 	"path/filepath"
 
-	//"github.com/DILEEPSAJJA/File_Encrypt/filecrypt"
+	"github.com/DILEEPSAJJA/File_Encrypt/filecrypt"
 	"github.com/gin-gonic/gin"
 )
 
-func EncryptHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
+func ginadapter(f func(*gin.Context)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, _ := gin.CreateTestContext(w)
+		c.Request = r
+		f(c)
+	})
+}
+
+var Handler = ginadapter(func(c *gin.Context) {
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if c.Request.Method == http.MethodOptions {
+		c.AbortWithStatus(204)
 		return
 	}
 
-	r.ParseMultipartForm(10 << 20) // 10MB limit
-	file, header, err := r.FormFile("file")
+	file, err := c.FormFile("file")
 	if err != nil {
-		http.Error(w, "File is required", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "File is required")
 		return
 	}
-	defer file.Close()
 
-	password := r.FormValue("password")
+	password := c.PostForm("password")
 	if len(password) < 4 {
-		http.Error(w, "Password must be at least 4 characters", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "Password must be at least 4 characters")
 		return
 	}
 
-	tempPath := filepath.Join(os.TempDir(), header.Filename)
-	out, _ := os.Create(tempPath)
-	defer out.Close()
+	tempPath := filepath.Join(os.TempDir(), file.Filename)
+	if err := c.SaveUploadedFile(file, tempPath); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to save uploaded file")
+		return
+	}
 	defer os.Remove(tempPath)
-
-	_, _ = out.ReadFrom(file)
 
 	encPath, err := filecrypt.EncryptFile(tempPath, []byte(password))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Encryption failed: %v", err), http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Encryption failed: %v", err))
 		return
 	}
 	defer os.Remove(encPath)
 
-	w.Header().Set("Content-Disposition", "attachment; filename="+header.Filename+".enc")
-	http.ServeFile(w, r, encPath)
-}
-
-// Required by Vercel
-var Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	EncryptHandler(w, r)
+	c.FileAttachment(encPath, file.Filename+".enc")
 })

@@ -1,5 +1,4 @@
-// --- api/decrypt.go ---
-package api
+package main
 
 import (
 	"fmt"
@@ -7,48 +6,54 @@ import (
 	"os"
 	"path/filepath"
 
-	//"github.com/DILEEPSAJJA/File_Encrypt/filecrypt"
+	"github.com/DILEEPSAJJA/File_Encrypt/filecrypt"
+	"github.com/gin-gonic/gin"
 )
 
-func DecryptHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
+func ginadapter(f func(*gin.Context)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, _ := gin.CreateTestContext(w)
+		c.Request = r
+		f(c)
+	})
+}
+
+var Handler = ginadapter(func(c *gin.Context) {
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if c.Request.Method == http.MethodOptions {
+		c.AbortWithStatus(204)
 		return
 	}
 
-	r.ParseMultipartForm(10 << 20)
-	file, header, err := r.FormFile("file")
+	file, err := c.FormFile("file")
 	if err != nil {
-		http.Error(w, "File is required", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "File is required")
 		return
 	}
-	defer file.Close()
 
-	password := r.FormValue("password")
+	password := c.PostForm("password")
 	if len(password) < 4 {
-		http.Error(w, "Password must be at least 4 characters", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "Password must be at least 4 characters")
 		return
 	}
 
-	tempPath := filepath.Join(os.TempDir(), header.Filename)
-	out, _ := os.Create(tempPath)
-	defer out.Close()
+	tempPath := filepath.Join(os.TempDir(), file.Filename)
+	if err := c.SaveUploadedFile(file, tempPath); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to save uploaded file")
+		return
+	}
 	defer os.Remove(tempPath)
-
-	_, _ = out.ReadFrom(file)
 
 	decPath, err := filecrypt.DecryptFile(tempPath, []byte(password))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Decryption failed: %v", err), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, fmt.Sprintf("Decryption failed: %v", err))
 		return
 	}
 	defer os.Remove(decPath)
 
-	origName := header.Filename[:len(header.Filename)-4] // remove ".enc"
-	w.Header().Set("Content-Disposition", "attachment; filename="+origName)
-	http.ServeFile(w, r, decPath)
-}
-
-var Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	DecryptHandler(w, r)
+	originalName := file.Filename[:len(file.Filename)-4] // Remove `.enc`
+	c.FileAttachment(decPath, originalName)
 })
