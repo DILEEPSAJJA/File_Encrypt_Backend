@@ -1,4 +1,5 @@
 package encrypt
+import "file_encrypt_backend/filecrypt"
 
 import (
 	"fmt"
@@ -7,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/DILEEPSAJJA/File_Encrypt_Backend/filecrypt"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
