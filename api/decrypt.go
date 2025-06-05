@@ -1,13 +1,12 @@
 package decrypt
-import "file_encrypt_backend/filecrypt"
 
 import (
+	"file_encrypt_backend/filecrypt"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
