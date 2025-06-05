@@ -1,59 +1,58 @@
-package main
+package decrypt
 
 import (
+	"File_Encrypt_Backend/filecrypt"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-
-	"github.com/DILEEPSAJJA/File_Encrypt/filecrypt"
-	"github.com/gin-gonic/gin"
 )
 
-func ginadapter(f func(*gin.Context)) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, _ := gin.CreateTestContext(w)
-		c.Request = r
-		f(c)
-	})
-}
-
-var Handler = ginadapter(func(c *gin.Context) {
-	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-	c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if c.Request.Method == http.MethodOptions {
-		c.AbortWithStatus(204)
+func Handler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	file, err := c.FormFile("file")
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	file, header, err := r.FormFile("file")
 	if err != nil {
-		c.String(http.StatusBadRequest, "File is required")
+		http.Error(w, "File is required", http.StatusBadRequest)
 		return
 	}
+	defer file.Close()
 
-	password := c.PostForm("password")
+	password := r.FormValue("password")
 	if len(password) < 4 {
-		c.String(http.StatusBadRequest, "Password must be at least 4 characters")
+		http.Error(w, "Password must be at least 4 characters", http.StatusBadRequest)
 		return
 	}
 
-	tempPath := filepath.Join(os.TempDir(), file.Filename)
-	if err := c.SaveUploadedFile(file, tempPath); err != nil {
-		c.String(http.StatusInternalServerError, "Failed to save uploaded file")
+	tempPath := filepath.Join(os.TempDir(), header.Filename)
+	out, err := os.Create(tempPath)
+	if err != nil {
+		http.Error(w, "Could not save uploaded file", http.StatusInternalServerError)
 		return
 	}
-	defer os.Remove(tempPath)
+	defer out.Close()
+	io.Copy(out, file)
 
 	decPath, err := filecrypt.DecryptFile(tempPath, []byte(password))
 	if err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("Decryption failed: %v", err))
+		http.Error(w, fmt.Sprintf("Decryption failed: %v", err), http.StatusInternalServerError)
 		return
 	}
 	defer os.Remove(decPath)
 
-	originalName := file.Filename[:len(file.Filename)-4] // Remove `.enc`
-	c.FileAttachment(decPath, originalName)
-})
+	http.ServeFile(w, r, decPath)
+}
