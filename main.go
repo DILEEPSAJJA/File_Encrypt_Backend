@@ -13,11 +13,22 @@ import (
 func main() {
 	router := gin.Default()
 
-	wd, _ := os.Getwd()
-	frontendPath := filepath.Join(wd, "../frontend")
+	// Global CORS middleware
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
 
-	router.StaticFile("/", filepath.Join(frontendPath, "index.html"))
-	router.Static("/static", frontendPath)
+	// 🔁 Redirect root to frontend
+	router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusTemporaryRedirect, "https://file-encrypt-frontend.vercel.app/")
+	})
 
 	router.POST("/encrypt", handleEncrypt)
 	router.POST("/decrypt", handleDecrypt)
@@ -25,7 +36,6 @@ func main() {
 	fmt.Println("Server running on http://localhost:8081")
 	router.Run(":8081")
 }
-
 
 func handleEncrypt(c *gin.Context) {
 	file, err := c.FormFile("file")
@@ -40,20 +50,19 @@ func handleEncrypt(c *gin.Context) {
 		return
 	}
 
-	// Save uploaded file
 	tempPath := filepath.Join(os.TempDir(), file.Filename)
 	if err := c.SaveUploadedFile(file, tempPath); err != nil {
 		c.String(http.StatusInternalServerError, "Failed to save uploaded file")
 		return
 	}
-	defer os.Remove(tempPath) // clean up temp file
+	defer os.Remove(tempPath)
 
 	encPath, err := filecrypt.EncryptFile(tempPath, []byte(password))
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Encryption failed: %v", err)
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Encryption failed: %v", err))
 		return
 	}
-	defer os.Remove(encPath) // clean up encrypted file
+	defer os.Remove(encPath)
 
 	c.FileAttachment(encPath, file.Filename+".enc")
 }
@@ -80,14 +89,248 @@ func handleDecrypt(c *gin.Context) {
 
 	decPath, err := filecrypt.DecryptFile(tempPath, []byte(password))
 	if err != nil {
-		c.String(http.StatusBadRequest, "Decryption failed: %v", err)
+		c.String(http.StatusBadRequest, fmt.Sprintf("Decryption failed: %v", err))
 		return
 	}
 	defer os.Remove(decPath)
 
-	originalName := file.Filename[:len(file.Filename)-4] // remove .enc
+	originalName := file.Filename[:len(file.Filename)-4]
 	c.FileAttachment(decPath, originalName)
 }
+
+
+// package main
+
+// import (
+// 	"fmt"
+// 	"net/http"
+// 	"os"
+// 	"path/filepath"
+
+// 	"github.com/DILEEPSAJJA/File_Encrypt/filecrypt"
+// 	"github.com/gin-gonic/gin"
+// )
+
+// func main() {
+// 	router := gin.Default()
+
+// 	// Global CORS middleware
+// 	router.Use(func(c *gin.Context) {
+// 		c.Writer.Header().Set("Access-Control-Allow-Origin", "https://file-encrypt-frontend.vercel.app/") // replace * with specific frontend domain in production
+// 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+// 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+// 		if c.Request.Method == "OPTIONS" {
+// 			c.AbortWithStatus(204)
+// 			return
+// 		}
+// 		c.Next()
+// 	})
+
+// 	// Root route showing status and frontend link
+// 	router.GET("/", func(c *gin.Context) {
+// 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`
+// 			<!DOCTYPE html>
+// 			<html>
+// 			<head>
+// 				<title>File_Encrypt Backend</title>
+// 				<style>
+// 					body {
+// 						font-family: Arial, sans-serif;
+// 						background-color: #f0f0f0;
+// 						color: #333;
+// 						text-align: center;
+// 						padding-top: 100px;
+// 					}
+// 					a {
+// 						color: #007BFF;
+// 						text-decoration: none;
+// 					}
+// 					a:hover {
+// 						text-decoration: underline;
+// 					}
+// 				</style>
+// 			</head>
+// 			<body>
+// 				<h1>✅ File_Encrypt Backend is Running</h1>
+// 				<p>Server is live on <strong>port 8081</strong></p>
+// 				<p>Frontend available at: 
+// 					<a href="https://file-encrypt-frontend.vercel.app/" target="_blank">
+// 						Open Frontend
+// 					</a>
+// 				</p>
+// 			</body>
+// 			</html>
+// 		`))
+// 	})
+
+// 	router.POST("/encrypt", handleEncrypt)
+// 	router.POST("/decrypt", handleDecrypt)
+
+// 	fmt.Println("Server running on http://localhost:8081")
+// 	router.Run(":8081")
+// }
+
+// func handleEncrypt(c *gin.Context) {
+// 	file, err := c.FormFile("file")
+// 	if err != nil {
+// 		c.String(http.StatusBadRequest, "File is required")
+// 		return
+// 	}
+
+// 	password := c.PostForm("password")
+// 	if len(password) < 4 {
+// 		c.String(http.StatusBadRequest, "Password must be at least 4 characters")
+// 		return
+// 	}
+
+// 	tempPath := filepath.Join(os.TempDir(), file.Filename)
+// 	if err := c.SaveUploadedFile(file, tempPath); err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to save uploaded file")
+// 		return
+// 	}
+// 	defer os.Remove(tempPath)
+
+// 	encPath, err := filecrypt.EncryptFile(tempPath, []byte(password))
+// 	if err != nil {
+// 		c.String(http.StatusInternalServerError, fmt.Sprintf("Encryption failed: %v", err))
+// 		return
+// 	}
+// 	defer os.Remove(encPath)
+
+// 	c.FileAttachment(encPath, file.Filename+".enc")
+// }
+
+// func handleDecrypt(c *gin.Context) {
+// 	file, err := c.FormFile("file")
+// 	if err != nil {
+// 		c.String(http.StatusBadRequest, "File is required")
+// 		return
+// 	}
+
+// 	password := c.PostForm("password")
+// 	if len(password) < 4 {
+// 		c.String(http.StatusBadRequest, "Password must be at least 4 characters")
+// 		return
+// 	}
+
+// 	tempPath := filepath.Join(os.TempDir(), file.Filename)
+// 	if err := c.SaveUploadedFile(file, tempPath); err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to save uploaded file")
+// 		return
+// 	}
+// 	defer os.Remove(tempPath)
+
+// 	decPath, err := filecrypt.DecryptFile(tempPath, []byte(password))
+// 	if err != nil {
+// 		c.String(http.StatusBadRequest, fmt.Sprintf("Decryption failed: %v", err))
+// 		return
+// 	}
+// 	defer os.Remove(decPath)
+
+// 	originalName := file.Filename[:len(file.Filename)-4] // remove .enc
+// 	c.FileAttachment(decPath, originalName)
+// }
+
+
+// package main
+
+// import (
+// 	"fmt"
+// 	"net/http"
+// 	"os"
+// 	"path/filepath"
+
+// 	"github.com/DILEEPSAJJA/File_Encrypt/filecrypt"
+// 	"github.com/gin-gonic/gin"
+// )
+
+// func main() {
+// 	router := gin.Default()
+
+// 	// wd, _ := os.Getwd()
+// 	// frontendPath := filepath.Join(wd, "../frontend")
+
+// 	// router.StaticFile("/", filepath.Join(frontendPath, "index.html"))
+// 	// router.Static("/static", frontendPath)
+
+// 	router.POST("/encrypt", handleEncrypt)
+// 	router.POST("/decrypt", handleDecrypt)
+
+// 	fmt.Println("Server running on http://localhost:8081")
+// 	router.Run(":8081")
+// }
+
+// func handleEncrypt(c *gin.Context) {
+
+// 	c.Writer.Header().Set("Access-Control-Allow-Origin", "*") // or your frontend domain
+// 	c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+// 	c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+// 	if c.Request.Method == "OPTIONS" {
+// 		c.AbortWithStatus(204)
+// 		return
+// 	}
+// 	c.Next()
+
+// 	file, err := c.FormFile("file")
+// 	if err != nil {
+// 		c.String(http.StatusBadRequest, "File is required")
+// 		return
+// 	}
+
+// 	password := c.PostForm("password")
+// 	if len(password) < 4 {
+// 		c.String(http.StatusBadRequest, "Password must be at least 4 characters")
+// 		return
+// 	}
+
+// 	// Save uploaded file
+// 	tempPath := filepath.Join(os.TempDir(), file.Filename)
+// 	if err := c.SaveUploadedFile(file, tempPath); err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to save uploaded file")
+// 		return
+// 	}
+// 	defer os.Remove(tempPath) // clean up temp file
+
+// 	encPath, err := filecrypt.EncryptFile(tempPath, []byte(password))
+// 	if err != nil {
+// 		c.String(http.StatusInternalServerError, "Encryption failed: %v", err)
+// 		return
+// 	}
+// 	defer os.Remove(encPath) // clean up encrypted file
+
+// 	c.FileAttachment(encPath, file.Filename+".enc")
+// }
+
+// func handleDecrypt(c *gin.Context) {
+// 	file, err := c.FormFile("file")
+// 	if err != nil {
+// 		c.String(http.StatusBadRequest, "File is required")
+// 		return
+// 	}
+
+// 	password := c.PostForm("password")
+// 	if len(password) < 4 {
+// 		c.String(http.StatusBadRequest, "Password must be at least 4 characters")
+// 		return
+// 	}
+
+// 	tempPath := filepath.Join(os.TempDir(), file.Filename)
+// 	if err := c.SaveUploadedFile(file, tempPath); err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to save uploaded file")
+// 		return
+// 	}
+// 	defer os.Remove(tempPath)
+
+// 	decPath, err := filecrypt.DecryptFile(tempPath, []byte(password))
+// 	if err != nil {
+// 		c.String(http.StatusBadRequest, "Decryption failed: %v", err)
+// 		return
+// 	}
+// 	defer os.Remove(decPath)
+
+// 	originalName := file.Filename[:len(file.Filename)-4] // remove .enc
+// 	c.FileAttachment(decPath, originalName)
+// }
 
 // package main
 

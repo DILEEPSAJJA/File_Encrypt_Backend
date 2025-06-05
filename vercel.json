@@ -1,8 +1,21 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "build": {
-    "env": {
-      "GO_BUILD_FLAGS": "-ldflags '-s -w'"
+  "version": 2,
+  "builds": [
+    {
+      "src": "main.go",
+      "use": "@vercel/go"
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/encrypt",
+      "methods": ["POST"],
+      "dest": "/main.go"
+    },
+    {
+      "src": "/decrypt",
+      "methods": ["POST"],
+      "dest": "/main.go"
+    }
+  ]
 }
