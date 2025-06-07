@@ -1,24 +1,22 @@
-package main
+package api
 
 import (
-	"file_encrypt_backend/filecrypt"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 
-	"./filecrypt"
+	"file_encrypt_backend/filecrypt"
 )
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func EncryptHandler(w http.ResponseWriter, r *http.Request) {
+	addCORSHeaders(w)
+
 	if r.Method == http.MethodOptions {
-		addCORSHeaders(w)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-
-	addCORSHeaders(w)
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

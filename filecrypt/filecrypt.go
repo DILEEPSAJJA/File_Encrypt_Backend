@@ -3,7 +3,6 @@ package filecrypt
 import (
 	"io"
 	"os"
-	"path/filepath"
 )
 
 func EncryptFile(inputPath string, password []byte) (string, error) {

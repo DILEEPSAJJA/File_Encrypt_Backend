@@ -1,23 +1,21 @@
-package decrypt
+package api
 
 import (
-	"file_encrypt_backend/filecrypt"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 
-	"./filecrypt"
+	"file_encrypt_backend/filecrypt"
 )
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func DecryptHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
 		addCORSHeaders(w)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-
 	addCORSHeaders(w)
 
 	if r.Method != http.MethodPost {
@@ -66,12 +64,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		originalName = originalName[:len(originalName)-4]
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "https://file-encrypt-frontend.vercel.app")
 	w.Header().Set("Content-Disposition", "attachment; filename="+originalName)
 	http.ServeFile(w, r, decPath)
-}
-
-func addCORSHeaders(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "https://file-encrypt-frontend.vercel.app")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
