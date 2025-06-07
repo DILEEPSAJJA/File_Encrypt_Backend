@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/", api.Handler)
+	http.HandleFunc("/", api.IndexHandler)
 	http.HandleFunc("/api/encrypt", api.EncryptHandler)
 	http.HandleFunc("/api/decrypt", api.DecryptHandler)
 

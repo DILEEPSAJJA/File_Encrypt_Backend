@@ -11,13 +11,11 @@ import (
 )
 
 func DecryptHandler(w http.ResponseWriter, r *http.Request) {
+	addCORSHeaders(w)
 	if r.Method == http.MethodOptions {
-		addCORSHeaders(w)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	addCORSHeaders(w)
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -64,7 +62,6 @@ func DecryptHandler(w http.ResponseWriter, r *http.Request) {
 		originalName = originalName[:len(originalName)-4]
 	}
 
-	w.Header().Set("Access-Control-Allow-Origin", "https://file-encrypt-frontend.vercel.app")
 	w.Header().Set("Content-Disposition", "attachment; filename="+originalName)
 	http.ServeFile(w, r, decPath)
 }

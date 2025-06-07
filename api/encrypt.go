@@ -1,23 +1,20 @@
 package api
 
 import (
+	"file_encrypt_backend/filecrypt"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-
-	"file_encrypt_backend/filecrypt"
 )
 
 func EncryptHandler(w http.ResponseWriter, r *http.Request) {
 	addCORSHeaders(w)
-
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -62,7 +59,6 @@ func EncryptHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+header.Filename+".enc")
 	http.ServeFile(w, r, encPath)
 }
-
 func addCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "https://file-encrypt-frontend.vercel.app")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
